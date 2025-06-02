@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+
+{% block header %}
+<title>Admin Products</title>
+{% endblock %}
+
+{% block body %}
+<table style="border: 1px solid ">
+    <tr>
+        <th>اسم</th>
+        <th>توضیحات</th>
+        <th>قیمت</th>
+        <th>فعال</th>
+    </tr>
+    {%for p in products%}
+    <tr>
+        <td>{{p.name}}</td>
+        <td>{{p.description}}</td>
+        <td>{{p.price}}</td>
+        <td>{{"yes" if p.active==1 else "no"}}</td>
+
+    </tr>
+    {%endfor%}
+</table>
+<form action="#" method="post">
+    <input type="text" name="name" placeholder="نام محصول"><br>
+    <textarea name="description" placeholder="توضیحات محصول"></textarea><br>
+    <input type="number" name="price" placeholder="قیمت"><br>
+    <label>فعال؟</label>
+    <input type="checkbox" name="active"><br>
+    <input type="submit" value="ثبت محصول">
+</form>
+{% endblock %}
