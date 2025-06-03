@@ -2,6 +2,7 @@ from flask import Blueprint, render_template, request, session, redirect, abort,
 import config
 from extentions import db
 from models.product import Product
+from  flask_wtf.csrf import  CSRFProtect
 
 app = Blueprint("admin", __name__)
 
