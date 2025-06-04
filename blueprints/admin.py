@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, request, session, redirect, abort,
 import config
 from extentions import db
 from models.product import Product
-from  flask_wtf.csrf import  CSRFProtect
+from flask_wtf.csrf import CSRFProtect
 
 app = Blueprint("admin", __name__)
 
@@ -43,6 +43,7 @@ def products():
         description = request.form.get('description', None)
         price = request.form.get('price', None)
         active = request.form.get('active', None)
+        file = request.files.get('cover', None)
 
         p = Product(name=name, description=description, price=price)
 
@@ -54,7 +55,10 @@ def products():
         db.session.add(p)
         db.session.commit()
 
+        file.save(f'static/cover/{p.id}.jpg')
+
         return "done"
+
 
 @app.route("/admin/dashboard/edit-product/<int:id>", methods=["GET", "POST"])
 def edit_product(id):
@@ -68,10 +72,11 @@ def edit_product(id):
         description = request.form.get('description', None)
         price = request.form.get('price', None)
         active = request.form.get('active', None)
+        file = request.files.get('cover', None)
 
-        product.name=name
-        product.description=description
-        product.price=price
+        product.name = name
+        product.description = description
+        product.price = price
 
         if active is None:
             product.active = 0
@@ -79,5 +84,7 @@ def edit_product(id):
             product.active = 1
 
         db.session.commit()
+        if file != None:
+            file.save(f'static/cover/{product.id}.jpg')
 
-        return redirect(url_for('admin.edit_product',id=id))
+        return redirect(url_for('admin.edit_product', id=id))
