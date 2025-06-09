@@ -69,12 +69,27 @@ def add_to_cart():
 
         item = CartItem(quantity=1)
         item.cart = cart
+        item.price=product.price
         item.product = product
         db.session.add(item)
     else:
         cart_item.quantity +=1
 
     db.session.commit()
+    return redirect(url_for('user.cart'))
+
+@app.route('/remove-from-cart', methods=['GET'])
+@login_required
+def remove_from_cart():
+    id = request.args.get('id')
+    cart_item=CartItem.query.filter(CartItem.id==id).first_or_404()
+    if cart_item.quantity>1:
+        cart_item.quantity -=1
+    else:
+
+     db.session.delete(cart_item)
+    db.session.commit()
+
     return redirect(url_for('user.cart'))
 
 
