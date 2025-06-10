@@ -1,11 +1,16 @@
+import pay as pay
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_login import login_user, login_required, current_user
+
+import config
 from extentions import db
 from models.cart import Cart
 from models.cart_item import CartItem
+from models.payment import Payment
 from models.product import Product
 from models.user import User
 from passlib.hash import sha256_crypt
+import requests
 
 app = Blueprint("user", __name__)
 
@@ -53,41 +58,43 @@ def login():
 def dashboard():
     return 'this is dashboard'
 
+
 @app.route('/add-to-cart', methods=['GET'])
 @login_required
 def add_to_cart():
     id = request.args.get('id')
-    product=Product.query.filter(Product.id==id).first_or_404()
+    product = Product.query.filter(Product.id == id).first_or_404()
     cart = current_user.carts.filter(Cart.status == 'pending').first()
     if cart == None:
         cart = Cart()
         current_user.carts.append(cart)
         db.session.add(cart)
 
-    cart_item=cart.cart_items.filter(CartItem.product==product).first()
-    if cart_item==None:
+    cart_item = cart.cart_items.filter(CartItem.product == product).first()
+    if cart_item == None:
 
         item = CartItem(quantity=1)
         item.cart = cart
-        item.price=product.price
+        item.price = product.price
         item.product = product
         db.session.add(item)
     else:
-        cart_item.quantity +=1
+        cart_item.quantity += 1
 
     db.session.commit()
     return redirect(url_for('user.cart'))
+
 
 @app.route('/remove-from-cart', methods=['GET'])
 @login_required
 def remove_from_cart():
     id = request.args.get('id')
-    cart_item=CartItem.query.filter(CartItem.id==id).first_or_404()
-    if cart_item.quantity>1:
-        cart_item.quantity -=1
+    cart_item = CartItem.query.filter(CartItem.id == id).first_or_404()
+    if cart_item.quantity > 1:
+        cart_item.quantity -= 1
     else:
 
-     db.session.delete(cart_item)
+        db.session.delete(cart_item)
     db.session.commit()
 
     return redirect(url_for('user.cart'))
@@ -96,5 +103,59 @@ def remove_from_cart():
 @app.route('/cart', methods=['GET'])
 @login_required
 def cart():
-    cart=current_user.carts.filter(Cart.status=='pending').first()
-    return render_template('/user/cart.html',cart=cart)
+    cart = current_user.carts.filter(Cart.status == 'pending').first()
+    return render_template('/user/cart.html', cart=cart)
+
+
+@app.route('/payment', methods=['GET'])
+@login_required
+def payment():
+    cart = current_user.carts.filter(Cart.status == 'pending').first()
+    r = requests.post(config.PAYMENT_FIRST_REQUEST_URL, data={
+        'api': config.PAYMENT_MERCHEANT,
+        'amount': cart.total_price(),
+        'callback': config.PAYMENT_CALLBACK})
+
+    token = r.json()['result']['token']
+    url = r.json()['result']['url']
+
+    pay = Payment(price=cart.total_price(), token=token)
+    pay.cart = cart
+    db.session.add(pay)
+    db.session.commit()
+
+    return redirect(url)
+
+
+@app.route('/verify', methods=['GET'])
+@login_required
+def verify():
+    token = request.args.get('token')
+    pay = Payment.query.filter(Payment.token == token).first()
+    r = requests.post(' https://sandbox.shepa.com/api/v1/verify', data={
+        'api': config.PAYMENT_MERCHEANT,
+        'amount': pay.price,
+        'token': token})
+
+    pay_status = bool(r.json()['success'])
+
+    if pay_status:
+        request.post(config.PAYMENT_VERIFY_REQUEST_URL)
+
+        transaction_id = r.json()['result']['transaction_id']
+        refid = r.json()['result']['refid']
+        card_pan = r.json()['result']['card_pan']
+        pay.transaction_id = transaction_id
+        pay.refid = refid
+        pay.card_pan = card_pan
+        pay.status = 'success'
+        pay.cart.status = 'paid'
+        flash('پرداخت موفق آمیز بود')
+
+    else:
+        flash('پرداخت ناموفق بود')
+        pay.status = 'failed'
+
+    db.session.commit()
+    return redirect(url_for('user.dashboard'))
+
