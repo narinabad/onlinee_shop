@@ -1,4 +1,4 @@
-import pay as pay
+
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_login import login_user, login_required, current_user
 
@@ -56,7 +56,7 @@ def login():
 @app.route('/user/dashboard', methods=['GET'])
 @login_required
 def dashboard():
-    return 'this is dashboard'
+    return render_template('user/dashboard.html')
 
 
 @app.route('/add-to-cart', methods=['GET'])
@@ -112,7 +112,7 @@ def cart():
 def payment():
     cart = current_user.carts.filter(Cart.status == 'pending').first()
     r = requests.post(config.PAYMENT_FIRST_REQUEST_URL, data={
-        'api': config.PAYMENT_MERCHEANT,
+        'api': config.PAYMENT_MERCHANT,
         'amount': cart.total_price(),
         'callback': config.PAYMENT_CALLBACK})
 
@@ -132,15 +132,15 @@ def payment():
 def verify():
     token = request.args.get('token')
     pay = Payment.query.filter(Payment.token == token).first()
-    r = requests.post(' https://sandbox.shepa.com/api/v1/verify', data={
-        'api': config.PAYMENT_MERCHEANT,
+    r = requests.post('https://sandbox.shepa.com/api/v1/verify', data={
+        'api': config.PAYMENT_MERCHANT,
         'amount': pay.price,
         'token': token})
 
     pay_status = bool(r.json()['success'])
 
     if pay_status:
-        request.post(config.PAYMENT_VERIFY_REQUEST_URL)
+        requests.post(config.PAYMENT_VERIFY_REQUEST_URL)
 
         transaction_id = r.json()['result']['transaction_id']
         refid = r.json()['result']['refid']
@@ -158,4 +158,10 @@ def verify():
 
     db.session.commit()
     return redirect(url_for('user.dashboard'))
+
+@app.route('/user/dashboard/order/<id>', methods=['GET'])
+@login_required
+def order(id):
+    cart=current_user.carts.filter(Cart.id==id).first_or_404()
+    return render_template('user/order.html',cart=cart)
 
