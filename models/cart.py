@@ -17,3 +17,16 @@ class Cart(db.Model):
             t = item.price * item.quantity
             total += t
         return total
+
+    def get_status_persian(self):
+       if self.status=='pending':
+           return 'در انتظار پرداخت'
+
+       if self.status=='paid':
+           return 'پرداخت شده'
+
+       if self.status=='sent':
+           return 'ارسال شده'
+
+       if self.status=='regected':
+           return 'ردشده'
